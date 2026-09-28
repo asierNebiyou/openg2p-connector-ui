@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ExternalLink, RefreshCw, RotateCcw } from "l
 import { api } from "../api/client";
 import { formatApiError } from "../api/errors";
 import type { Connector, DLQEntry, DLQPage } from "../api/types";
+import { formatLocal } from "../lib/time";
 
 const ERROR_CATEGORIES = ["transient", "permanent", "validation", "config"] as const;
 const PAGE_SIZE = 25;
@@ -181,8 +182,8 @@ export default function DLQList() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Dead Letter Queue</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-neutral-first">Dead Letter Queue</h1>
+          <p className="text-sm text-secondary-third mt-0.5">
             {totalEntries} total · {isGroupedMode ? "grouped by pipeline" : `page ${page + 1} of ${totalPages}`} · {selectedCount} selected on this page
           </p>
         </div>
@@ -190,7 +191,7 @@ export default function DLQList() {
           <button
             onClick={() => replay(Array.from(selected))}
             disabled={selectedCount === 0 || replaying.size > 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-900 bg-amber-100 border border-amber-300 rounded-md hover:bg-amber-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-first bg-primary-first/30 border border-primary-second rounded-[10px] hover:bg-amber-200 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Replay all selected entries"
           >
             <RotateCcw className="w-4 h-4" />
@@ -198,7 +199,7 @@ export default function DLQList() {
           </button>
           <button
             onClick={load}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-first bg-neutral-second border border-primary-second rounded-[10px] hover:bg-secondary-first"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -206,10 +207,10 @@ export default function DLQList() {
         </div>
       </div>
 
-      <div className="mb-4 bg-white rounded-lg border border-[#d9d5c5] p-4 flex flex-col gap-3">
+      <div className="mb-4 bg-neutral-second rounded-[10px] border border-primary-second p-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Connector</label>
+            <label className="text-xs font-medium text-secondary-third uppercase tracking-wide">Connector</label>
             <select
               value={connectorFilter}
               onChange={(e) => {
@@ -217,7 +218,7 @@ export default function DLQList() {
                 setPage(0);
                 setGroupPages({});
               }}
-              className="min-w-[240px] px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="min-w-[240px] px-3 py-2 text-sm border border-primary-second rounded-[10px] bg-neutral-second focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="">All connectors</option>
               {connectors.map((c) => (
@@ -228,7 +229,7 @@ export default function DLQList() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Error category</label>
+            <label className="text-xs font-medium text-secondary-third uppercase tracking-wide">Error category</label>
             <select
               value={categoryFilter}
               onChange={(e) => {
@@ -236,7 +237,7 @@ export default function DLQList() {
                 setPage(0);
                 setGroupPages({});
               }}
-              className="min-w-[160px] px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="min-w-[160px] px-3 py-2 text-sm border border-primary-second rounded-[10px] bg-neutral-second focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="">All categories</option>
               {ERROR_CATEGORIES.map((cat) => (
@@ -247,24 +248,24 @@ export default function DLQList() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Search</label>
+            <label className="text-xs font-medium text-secondary-third uppercase tracking-wide">Search</label>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applySearch()}
-              className="min-w-[200px] px-3 py-2 text-sm border border-gray-300 rounded-md"
+              className="min-w-[200px] px-3 py-2 text-sm border border-primary-second rounded-[10px]"
               placeholder="dl id, event, error text…"
             />
           </div>
           <button
             type="button"
             onClick={applySearch}
-            className="px-3 py-2 text-sm bg-amber-700 text-white rounded-md hover:bg-amber-800"
+            className="px-3 py-2 text-sm bg-neutral-first text-white rounded-[10px] hover:opacity-90"
           >
             Search
           </button>
         </div>
-        <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label className="inline-flex items-center gap-2 text-sm text-neutral-first cursor-pointer">
           <input
             type="checkbox"
             checked={groupByConnector}
@@ -273,30 +274,30 @@ export default function DLQList() {
               setPage(0);
               setGroupPages({});
             }}
-            className="rounded border-gray-300 text-amber-700"
+            className="rounded border-primary-second text-primary-second"
           />
           Group by pipeline (accordion)
         </label>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-[10px] bg-toast-failed/10 border border-toast-failed/40 text-toast-failed text-sm">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-center py-16 text-gray-500">Loading…</div>
+        <div className="text-center py-16 text-secondary-third">Loading…</div>
       ) : totalEntries === 0 ? (
-        <div className="text-center py-16 text-gray-500">No dead-letter entries.</div>
+        <div className="text-center py-16 text-secondary-third">No dead-letter entries.</div>
       ) : isGroupedMode ? (
         <div className="space-y-3">
           {groupedDLQ.map((group) => {
             const isOpen = expandedGroups.has(group.connectorId);
             const groupTotalPages = Math.max(1, Math.ceil(group.total / PAGE_SIZE));
             return (
-              <div key={group.connectorId} className="bg-white rounded-lg border border-[#d9d5c5] shadow-sm overflow-hidden">
+              <div key={group.connectorId} className="bg-neutral-second rounded-[10px] border border-primary-second shadow-sm overflow-hidden">
                 <button
                   type="button"
-                  className="w-full px-4 py-3 bg-[#f9f7f0] flex items-center justify-between text-left hover:bg-[#f3efe3]"
+                  className="w-full px-4 py-3 bg-secondary-first flex items-center justify-between text-left hover:bg-[#f3efe3]"
                   onClick={() =>
                     setExpandedGroups((prev) => {
                       const next = new Set(prev);
@@ -307,7 +308,7 @@ export default function DLQList() {
                   }
                 >
                   <span className="text-sm font-semibold text-gray-800">{group.connectorName}</span>
-                  <span className="inline-flex items-center gap-2 text-xs text-gray-600">
+                  <span className="inline-flex items-center gap-2 text-xs text-secondary-third">
                     {group.total} entries
                     {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </span>
@@ -316,20 +317,20 @@ export default function DLQList() {
                 {isOpen && (
                   <div className="p-3 space-y-3">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-[#f9f7f0]">
+                      <table className="min-w-full divide-y divide-secondary-second">
+                        <thead className="bg-secondary-first">
                           <tr>
                             <th className="px-3 py-3 w-10"></th>
                             <th className="w-10"></th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Error</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Attempts</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">ID</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Category</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Error</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Attempts</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Created</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-secondary-third uppercase tracking-wider">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-secondary-second">
                           {group.items.map((e) => {
                             const isOpenRow = expandedRows.has(e.dl_id);
                             return (
@@ -340,34 +341,34 @@ export default function DLQList() {
                                       type="checkbox"
                                       checked={selected.has(e.dl_id)}
                                       onChange={() => toggleSelect(e.dl_id)}
-                                      className="rounded border-gray-300"
+                                      className="rounded border-primary-second"
                                     />
                                   </td>
                                   <td className="px-2 py-3">
                                     <button
                                       onClick={() => toggleExpand(e.dl_id)}
-                                      className="text-gray-500 hover:text-gray-800"
+                                      className="text-secondary-third hover:text-gray-800"
                                       aria-label={isOpenRow ? "Collapse" : "Expand"}
                                     >
                                       {isOpenRow ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                     </button>
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-mono text-gray-700" title={e.dl_id}>
+                                  <td className="px-4 py-3 text-sm font-mono text-neutral-first" title={e.dl_id}>
                                     {e.dl_id.slice(0, 12)}…
                                   </td>
                                   <td className="px-4 py-3 text-sm">
                                     <CategoryBadge category={e.error_category} />
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-red-600 max-w-xs truncate" title={e.error || undefined}>
+                                  <td className="px-4 py-3 text-sm text-toast-failed max-w-xs truncate" title={e.error || undefined}>
                                     {e.error || "—"}
                                   </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">{e.attempt_count}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-500">{new Date(e.created_at).toLocaleString()}</td>
+                                  <td className="px-4 py-3 text-sm text-secondary-third">{e.attempt_count}</td>
+                                  <td className="px-4 py-3 text-sm text-secondary-third">{formatLocal(e.created_at)}</td>
                                   <td className="px-4 py-3 text-sm text-right">
                                     <button
                                       onClick={() => replay([e.dl_id])}
                                       disabled={replaying.has(e.dl_id)}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50"
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-second bg-primary-first/20 border border-primary-second rounded hover:bg-primary-first/30 disabled:opacity-50"
                                     >
                                       <RotateCcw className="w-3 h-3" />
                                       Replay
@@ -379,25 +380,25 @@ export default function DLQList() {
                                     <td colSpan={8} className="px-6 py-4">
                                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                         <div>
-                                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Metadata</div>
+                                          <div className="text-xs font-medium text-secondary-third uppercase tracking-wide mb-1">Metadata</div>
                                           <dl className="text-sm space-y-1">
                                             <div className="flex gap-2">
-                                              <dt className="text-gray-500 w-36">DL ID</dt>
+                                              <dt className="text-secondary-third w-36">DL ID</dt>
                                               <dd className="font-mono break-all">{e.dl_id}</dd>
                                             </div>
                                             <div className="flex gap-2">
-                                              <dt className="text-gray-500 w-36">Connector ID</dt>
+                                              <dt className="text-secondary-third w-36">Connector ID</dt>
                                               <dd className="font-mono break-all">{e.connector_id}</dd>
                                             </div>
                                             <div className="flex gap-2">
-                                              <dt className="text-gray-500 w-36">Source event ID</dt>
+                                              <dt className="text-secondary-third w-36">Source event ID</dt>
                                               <dd className="font-mono break-all">{e.source_event_id || "—"}</dd>
                                             </div>
                                           </dl>
                                           <div className="mt-3 text-xs">
                                             <Link
                                               to={`/pipelines/${e.connector_id}?tab=dlq`}
-                                              className="inline-flex items-center gap-1 text-amber-800 hover:text-amber-900 hover:underline"
+                                              className="inline-flex items-center gap-1 text-primary-second hover:text-neutral-first hover:underline"
                                             >
                                               Open pipeline
                                               <ExternalLink className="w-3 h-3" />
@@ -405,14 +406,14 @@ export default function DLQList() {
                                           </div>
                                           {e.error && (
                                             <div className="mt-3">
-                                              <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">Error</div>
-                                              <pre className="text-xs bg-red-50 border border-red-200 rounded p-2 whitespace-pre-wrap text-red-800">{e.error}</pre>
+                                              <div className="text-xs font-medium text-toast-failed uppercase tracking-wide mb-1">Error</div>
+                                              <pre className="text-xs bg-toast-failed/10 border border-toast-failed/40 rounded p-2 whitespace-pre-wrap text-red-800">{e.error}</pre>
                                             </div>
                                           )}
                                         </div>
                                         <div>
-                                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Payload</div>
-                                          <pre className="text-xs bg-white border border-gray-200 rounded p-2 max-h-80 overflow-auto">
+                                          <div className="text-xs font-medium text-secondary-third uppercase tracking-wide mb-1">Payload</div>
+                                          <pre className="text-xs bg-neutral-second border border-secondary-second rounded p-2 max-h-80 overflow-auto">
                                             {JSON.stringify(e.payload ?? {}, null, 2)}
                                           </pre>
                                         </div>
@@ -426,7 +427,7 @@ export default function DLQList() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center justify-between text-sm text-secondary-third">
                       <span>
                         {group.total === 0
                           ? "0"
@@ -442,7 +443,7 @@ export default function DLQList() {
                               [group.connectorId]: Math.max(0, group.page - 1),
                             }))
                           }
-                          className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-40"
+                          className="px-3 py-1.5 border border-primary-second rounded-[10px] disabled:opacity-40"
                         >
                           Previous
                         </button>
@@ -455,7 +456,7 @@ export default function DLQList() {
                               [group.connectorId]: group.page + 1,
                             }))
                           }
-                          className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-40"
+                          className="px-3 py-1.5 border border-primary-second rounded-[10px] disabled:opacity-40"
                         >
                           Next
                         </button>
@@ -469,30 +470,30 @@ export default function DLQList() {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-[#d9d5c5] shadow-sm overflow-hidden">
+          <div className="bg-neutral-second rounded-[10px] border border-primary-second shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-[#f9f7f0]">
+              <table className="min-w-full divide-y divide-secondary-second">
+                <thead className="bg-secondary-first">
                   <tr>
                     <th className="px-3 py-3 w-10">
                       <input
                         type="checkbox"
                         checked={selectedCount > 0 && selectedCount === entries.length}
                         onChange={toggleSelectAll}
-                        className="rounded border-gray-300"
+                        className="rounded border-primary-second"
                       />
                     </th>
                     <th className="w-10"></th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Connector</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Error</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Attempts</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Connector</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Error</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Attempts</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-third uppercase tracking-wider">Created</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-secondary-third uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-secondary-second">
                   {entries.map((e) => {
                     const isOpen = expandedRows.has(e.dl_id);
                     const connectorName =
@@ -505,25 +506,25 @@ export default function DLQList() {
                               type="checkbox"
                               checked={selected.has(e.dl_id)}
                               onChange={() => toggleSelect(e.dl_id)}
-                              className="rounded border-gray-300"
+                              className="rounded border-primary-second"
                             />
                           </td>
                           <td className="px-2 py-3">
                             <button
                               onClick={() => toggleExpand(e.dl_id)}
-                              className="text-gray-500 hover:text-gray-800"
+                              className="text-secondary-third hover:text-gray-800"
                               aria-label={isOpen ? "Collapse" : "Expand"}
                             >
                               {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                             </button>
                           </td>
-                          <td className="px-4 py-3 text-sm font-mono text-gray-700" title={e.dl_id}>
+                          <td className="px-4 py-3 text-sm font-mono text-neutral-first" title={e.dl_id}>
                             {e.dl_id.slice(0, 12)}…
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
+                          <td className="px-4 py-3 text-sm text-neutral-first">
                             <Link
                               to={`/pipelines/${e.connector_id}?tab=dlq`}
-                              className="inline-flex items-center gap-1 text-amber-800 hover:text-amber-900 hover:underline"
+                              className="inline-flex items-center gap-1 text-primary-second hover:text-neutral-first hover:underline"
                               title="Open pipeline details"
                             >
                               {connectorName}
@@ -533,16 +534,16 @@ export default function DLQList() {
                           <td className="px-4 py-3 text-sm">
                             <CategoryBadge category={e.error_category} />
                           </td>
-                          <td className="px-4 py-3 text-sm text-red-600 max-w-xs truncate" title={e.error || undefined}>
+                          <td className="px-4 py-3 text-sm text-toast-failed max-w-xs truncate" title={e.error || undefined}>
                             {e.error || "—"}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{e.attempt_count}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{new Date(e.created_at).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-secondary-third">{e.attempt_count}</td>
+                          <td className="px-4 py-3 text-sm text-secondary-third">{formatLocal(e.created_at)}</td>
                           <td className="px-4 py-3 text-sm text-right">
                             <button
                               onClick={() => replay([e.dl_id])}
                               disabled={replaying.has(e.dl_id)}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-second bg-primary-first/20 border border-primary-second rounded hover:bg-primary-first/30 disabled:opacity-50"
                             >
                               <RotateCcw className="w-3 h-3" />
                               Replay
@@ -554,31 +555,31 @@ export default function DLQList() {
                             <td colSpan={9} className="px-6 py-4">
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 <div>
-                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Metadata</div>
+                                  <div className="text-xs font-medium text-secondary-third uppercase tracking-wide mb-1">Metadata</div>
                                   <dl className="text-sm space-y-1">
                                     <div className="flex gap-2">
-                                      <dt className="text-gray-500 w-36">DL ID</dt>
+                                      <dt className="text-secondary-third w-36">DL ID</dt>
                                       <dd className="font-mono break-all">{e.dl_id}</dd>
                                     </div>
                                     <div className="flex gap-2">
-                                      <dt className="text-gray-500 w-36">Connector ID</dt>
+                                      <dt className="text-secondary-third w-36">Connector ID</dt>
                                       <dd className="font-mono break-all">{e.connector_id}</dd>
                                     </div>
                                     <div className="flex gap-2">
-                                      <dt className="text-gray-500 w-36">Source event ID</dt>
+                                      <dt className="text-secondary-third w-36">Source event ID</dt>
                                       <dd className="font-mono break-all">{e.source_event_id || "—"}</dd>
                                     </div>
                                   </dl>
                                   {e.error && (
                                     <div className="mt-3">
-                                      <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">Error</div>
-                                      <pre className="text-xs bg-red-50 border border-red-200 rounded p-2 whitespace-pre-wrap text-red-800">{e.error}</pre>
+                                      <div className="text-xs font-medium text-toast-failed uppercase tracking-wide mb-1">Error</div>
+                                      <pre className="text-xs bg-toast-failed/10 border border-toast-failed/40 rounded p-2 whitespace-pre-wrap text-red-800">{e.error}</pre>
                                     </div>
                                   )}
                                 </div>
                                 <div>
-                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Payload</div>
-                                  <pre className="text-xs bg-white border border-gray-200 rounded p-2 max-h-80 overflow-auto">
+                                  <div className="text-xs font-medium text-secondary-third uppercase tracking-wide mb-1">Payload</div>
+                                  <pre className="text-xs bg-neutral-second border border-secondary-second rounded p-2 max-h-80 overflow-auto">
                                     {JSON.stringify(e.payload ?? {}, null, 2)}
                                   </pre>
                                 </div>
@@ -593,7 +594,7 @@ export default function DLQList() {
               </table>
             </div>
           </div>
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-4 text-sm text-secondary-third">
             <span>
               {data && data.total > 0
                 ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, data.total)} of ${data.total}`
@@ -604,7 +605,7 @@ export default function DLQList() {
                 type="button"
                 disabled={page <= 0}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-40"
+                className="px-3 py-1.5 border border-primary-second rounded-[10px] disabled:opacity-40"
               >
                 Previous
               </button>
@@ -612,7 +613,7 @@ export default function DLQList() {
                 type="button"
                 disabled={page >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-40"
+                className="px-3 py-1.5 border border-primary-second rounded-[10px] disabled:opacity-40"
               >
                 Next
               </button>
@@ -625,7 +626,7 @@ export default function DLQList() {
 }
 
 function CategoryBadge({ category }: { category: string | null }) {
-  if (!category) return <span className="text-gray-400 text-xs">—</span>;
+  if (!category) return <span className="text-secondary-third text-xs">—</span>;
   const colors: Record<string, string> = {
     transient: "bg-yellow-100 text-yellow-800",
     permanent: "bg-red-100 text-red-800",
@@ -633,7 +634,7 @@ function CategoryBadge({ category }: { category: string | null }) {
     config: "bg-orange-100 text-orange-800",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[category] || "bg-gray-100 text-gray-700"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[category] || "bg-secondary-second text-neutral-first"}`}>
       {category}
     </span>
   );

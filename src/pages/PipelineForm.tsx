@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Save, ArrowLeft, Loader2 } from "lucide-react";
 import { api } from "../api/client";
@@ -10,6 +10,41 @@ import type {
 } from "../api/types";
 import Card from "../components/Card";
 import { EDRMC_WEBSUB_UD } from "../lib/edrmc-websub-template";
+
+const CURSOR_KEYS = [
+  "incremental_field",
+  "incremental_mode",
+  "page_size",
+  "max_pages",
+  "http_timeout_seconds",
+  "partner_ingest_timeout_seconds",
+  "partner_public_key_pem",
+  "partner_jwks_url",
+] as const;
+
+type SourceExtras = {
+  incremental_field: string;
+  incremental_mode: string;
+  page_size: string;
+  max_pages: string;
+  http_timeout_seconds: string;
+  partner_ingest_timeout_seconds: string;
+  partner_public_key_pem: string;
+  partner_jwks_url: string;
+  advanced_json: string;
+};
+
+const EMPTY_EXTRAS: SourceExtras = {
+  incremental_field: "",
+  incremental_mode: "timestamp",
+  page_size: "",
+  max_pages: "",
+  http_timeout_seconds: "",
+  partner_ingest_timeout_seconds: "",
+  partner_public_key_pem: "",
+  partner_jwks_url: "",
+  advanced_json: "",
+};
 
 const EMPTY: ConnectorCreate = {
   name: "",
@@ -31,6 +66,65 @@ const EMPTY: ConnectorCreate = {
   validation_schema_json: "",
 };
 
+function parseSourceConfig(raw: string | null | undefined): SourceExtras {
+  if (!raw?.trim()) return { ...EMPTY_EXTRAS };
+  try {
+    const obj = JSON.parse(raw) as Record<string, unknown>;
+    const advanced: Record<string, unknown> = { ...obj };
+    for (const key of CURSOR_KEYS) delete advanced[key];
+    return {
+      incremental_field: String(obj.incremental_field ?? ""),
+      incremental_mode: String(obj.incremental_mode ?? "timestamp"),
+      page_size: obj.page_size != null ? String(obj.page_size) : "",
+      max_pages: obj.max_pages != null ? String(obj.max_pages) : "",
+      http_timeout_seconds:
+        obj.http_timeout_seconds != null ? String(obj.http_timeout_seconds) : "",
+      partner_ingest_timeout_seconds:
+        obj.partner_ingest_timeout_seconds != null
+          ? String(obj.partner_ingest_timeout_seconds)
+          : "",
+      partner_public_key_pem: String(obj.partner_public_key_pem ?? ""),
+      partner_jwks_url: String(obj.partner_jwks_url ?? ""),
+      advanced_json: Object.keys(advanced).length
+        ? JSON.stringify(advanced, null, 2)
+        : "",
+    };
+  } catch {
+    return { ...EMPTY_EXTRAS, advanced_json: raw || "" };
+  }
+}
+
+function buildSourceConfigJson(extras: SourceExtras): string {
+  let advanced: Record<string, unknown> = {};
+  if (extras.advanced_json.trim()) {
+    advanced = JSON.parse(extras.advanced_json) as Record<string, unknown>;
+  }
+  const merged: Record<string, unknown> = { ...advanced };
+  if (extras.incremental_field.trim()) {
+    merged.incremental_field = extras.incremental_field.trim();
+  }
+  if (extras.incremental_mode.trim()) {
+    merged.incremental_mode = extras.incremental_mode.trim();
+  }
+  if (extras.page_size.trim()) merged.page_size = Number(extras.page_size);
+  if (extras.max_pages.trim()) merged.max_pages = Number(extras.max_pages);
+  if (extras.http_timeout_seconds.trim()) {
+    merged.http_timeout_seconds = Number(extras.http_timeout_seconds);
+  }
+  if (extras.partner_ingest_timeout_seconds.trim()) {
+    merged.partner_ingest_timeout_seconds = Number(
+      extras.partner_ingest_timeout_seconds
+    );
+  }
+  if (extras.partner_public_key_pem.trim()) {
+    merged.partner_public_key_pem = extras.partner_public_key_pem.trim();
+  }
+  if (extras.partner_jwks_url.trim()) {
+    merged.partner_jwks_url = extras.partner_jwks_url.trim();
+  }
+  return Object.keys(merged).length ? JSON.stringify(merged, null, 2) : "";
+}
+
 export default function PipelineForm() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
@@ -40,6 +134,7 @@ export default function PipelineForm() {
   const [partners, setPartners] = useState<MetadataList | null>(null);
   const [registers, setRegisters] = useState<MetadataList | null>(null);
   const [form, setForm] = useState<ConnectorCreate>({ ...EMPTY });
+  const [extras, setExtras] = useState<SourceExtras>({ ...EMPTY_EXTRAS });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +142,6 @@ export default function PipelineForm() {
   useEffect(() => {
     (async () => {
       try {
-        // Run metadata calls in parallel; metadata failures shouldn't block form load.
         const [m, pRes, rRes] = await Promise.all([
           api.meta(),
           api.listPartners().catch(() => ({ configured: false, items: [] })),
@@ -77,6 +171,7 @@ export default function PipelineForm() {
             max_in_flight: c.max_in_flight,
             validation_schema_json: c.validation_schema_json || "",
           });
+          setExtras(parseSourceConfig(c.source_config_json));
         }
       } catch (e: unknown) {
         setError(formatApiError(e));
@@ -89,24 +184,50 @@ export default function PipelineForm() {
   const set = <K extends keyof ConnectorCreate>(key: K, val: ConnectorCreate[K]) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
+  const setExtra = <K extends keyof SourceExtras>(key: K, val: SourceExtras[K]) =>
+    setExtras((prev) => ({ ...prev, [key]: val }));
+
   const transportHint = meta?.transport_hints[form.transport_type] || "";
   const isWebhook = transportHint === "webhook";
   const isPoll = transportHint === "poll";
   const isConsumer = transportHint === "consumer";
   const isWebSub = form.transport_type === "websub";
+  const isJwtVerifier = form.webhook_verifier === "jwt_signature";
+
+  const showSourceCard = isPoll || isConsumer || isWebhook;
+
+  const verifiers = useMemo(() => {
+    const list = meta?.webhook_verifiers || [];
+    if (!list.includes("jwt_signature")) return [...list, "jwt_signature"];
+    return list;
+  }, [meta]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
-      const payload = { ...form };
+      let source_config_json: string | undefined;
+      try {
+        source_config_json = buildSourceConfigJson(extras) || undefined;
+      } catch {
+        setError("Source config JSON is invalid");
+        setSaving(false);
+        return;
+      }
+
+      const payload: Record<string, unknown> = {
+        ...form,
+        source_config_json,
+      };
       if (!payload.auth_secret_json) delete payload.auth_secret_json;
       if (!payload.webhook_secret) delete payload.webhook_secret;
       if (!payload.source_config_json) delete payload.source_config_json;
       if (!payload.validation_schema_json) delete payload.validation_schema_json;
       if (!payload.mapper_expression) delete payload.mapper_expression;
-      if (payload.max_in_flight === null || payload.max_in_flight === undefined) delete payload.max_in_flight;
+      if (payload.max_in_flight === null || payload.max_in_flight === undefined) {
+        delete payload.max_in_flight;
+      }
 
       if (isEdit && id) {
         await api.updateConnector(id, payload);
@@ -121,7 +242,9 @@ export default function PipelineForm() {
     }
   };
 
-  if (loading) return <div className="text-center py-16 text-gray-500">Loading…</div>;
+  if (loading) {
+    return <div className="text-center py-16 text-secondary-third">Loading…</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-24">
@@ -130,26 +253,27 @@ export default function PipelineForm() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="p-2 rounded-md hover:bg-gray-100 text-gray-500"
+            className="p-2 rounded-[10px] hover:bg-secondary-second text-secondary-third"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-neutral-first">
             {isEdit ? "Edit Pipeline" : "New Pipeline"}
           </h1>
         </div>
         {!isEdit && (
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded-md border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-            onClick={() =>
+            className="px-3 py-1.5 text-sm rounded-[10px] border border-primary-second bg-primary-first/20 text-neutral-first hover:bg-primary-first/30"
+            onClick={() => {
               setForm({
                 ...EMPTY,
                 ...EDRMC_WEBSUB_UD,
                 auth_secret_json: "",
                 webhook_secret: "",
-              })
-            }
+              });
+              setExtras(parseSourceConfig(EDRMC_WEBSUB_UD.source_config_json));
+            }}
           >
             Apply EDRMC → UD WebSub template
           </button>
@@ -157,10 +281,11 @@ export default function PipelineForm() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
+        <div className="p-3 rounded-[10px] bg-toast-failed/10 border border-toast-failed text-toast-failed text-sm">
+          {error}
+        </div>
       )}
 
-      {/* Identity */}
       <Card title="Identity">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Name" required>
@@ -206,31 +331,30 @@ export default function PipelineForm() {
           </Field>
         </div>
         <div className="flex gap-6 mt-4">
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-neutral-first cursor-pointer">
             <input
               type="checkbox"
               checked={form.enabled}
               onChange={(e) => set("enabled", e.target.checked)}
-              className="rounded border-gray-300 text-amber-700 focus:ring-amber-600"
+              className="rounded border-primary-second text-primary-second focus:ring-primary-first"
             />
             Enabled
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-neutral-first cursor-pointer">
             <input
               type="checkbox"
               checked={form.paused}
               onChange={(e) => set("paused", e.target.checked)}
-              className="rounded border-gray-300 text-amber-700 focus:ring-amber-600"
+              className="rounded border-primary-second text-primary-second focus:ring-primary-first"
             />
             Paused
           </label>
         </div>
       </Card>
 
-      {/* Registry delivery (G2P envelope) */}
       <Card
         title="Registry Delivery"
-        subtitle="Required — fields the Partner API reads from the G2P envelope. Field-level mapping (e.g. flattening nested names) happens in the registry transformer, not here."
+        subtitle="Sender and target register for the Partner API envelope."
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field
@@ -256,7 +380,7 @@ export default function PipelineForm() {
             hint={
               registers?.configured === false
                 ? "Metadata DSN not set — type a register mnemonic manually."
-                : "Determines which incoming_model_semantic_pattern matches."
+                : undefined
             }
           >
             <MetadataSelectOrInput
@@ -270,20 +394,100 @@ export default function PipelineForm() {
         </div>
       </Card>
 
-      {/* Source Configuration */}
-      {(isPoll || isConsumer || isWebhook) && (
+      {showSourceCard && (
         <Card title="Source Configuration">
+          {isPoll && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <Field
+                label="Cursor field"
+                hint="Attribute used to request only new records (e.g. __system/submissionDate)."
+              >
+                <input
+                  value={extras.incremental_field}
+                  onChange={(e) => setExtra("incremental_field", e.target.value)}
+                  className="input"
+                  placeholder="__system/submissionDate"
+                />
+              </Field>
+              <Field label="Cursor mode">
+                <select
+                  value={extras.incremental_mode}
+                  onChange={(e) => setExtra("incremental_mode", e.target.value)}
+                  className="input"
+                >
+                  <option value="timestamp">timestamp</option>
+                  <option value="updated_at">updated_at</option>
+                  <option value="sequence">sequence</option>
+                  <option value="full_scan">full_scan</option>
+                </select>
+              </Field>
+              <Field label="Page size">
+                <input
+                  type="number"
+                  min={1}
+                  value={extras.page_size}
+                  onChange={(e) => setExtra("page_size", e.target.value)}
+                  className="input"
+                  placeholder="100"
+                />
+              </Field>
+              <Field label="Max pages per fetch">
+                <input
+                  type="number"
+                  min={1}
+                  value={extras.max_pages}
+                  onChange={(e) => setExtra("max_pages", e.target.value)}
+                  className="input"
+                  placeholder="50"
+                />
+              </Field>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Field
+              label="HTTP timeout (seconds)"
+              hint="Source fetch timeout for this pipeline (5–300)."
+            >
+              <input
+                type="number"
+                min={5}
+                max={300}
+                value={extras.http_timeout_seconds}
+                onChange={(e) => setExtra("http_timeout_seconds", e.target.value)}
+                className="input"
+                placeholder="60"
+              />
+            </Field>
+            <Field
+              label="Partner ingest timeout (seconds)"
+              hint="Outbound registry call timeout for this pipeline (5–300)."
+            >
+              <input
+                type="number"
+                min={5}
+                max={300}
+                value={extras.partner_ingest_timeout_seconds}
+                onChange={(e) =>
+                  setExtra("partner_ingest_timeout_seconds", e.target.value)
+                }
+                className="input"
+                placeholder="30"
+              />
+            </Field>
+          </div>
+
           <Field
-            label="Source Config (JSON)"
+            label="Additional source config (JSON)"
             hint={
               isWebSub
                 ? "hub_url, partner_id, callback_url, topics, data_path"
-                : "base_url, poll_interval_seconds, project_id, form_id, topic, bootstrap_servers, etc."
+                : "base_url, project_id, form_id, topic, bootstrap_servers, etc."
             }
           >
             <textarea
-              value={form.source_config_json || ""}
-              onChange={(e) => set("source_config_json", e.target.value)}
+              value={extras.advanced_json}
+              onChange={(e) => setExtra("advanced_json", e.target.value)}
               className="input font-mono text-sm"
               rows={6}
               placeholder={
@@ -296,7 +500,6 @@ export default function PipelineForm() {
         </Card>
       )}
 
-      {/* Auth */}
       <Card title="Authentication">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Auth Type">
@@ -306,12 +509,17 @@ export default function PipelineForm() {
               className="input"
             >
               {meta?.auth_types.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           </Field>
           {form.auth_type !== "none" && (
-            <Field label="Auth Secrets (JSON)" hint={isEdit ? "Leave blank to keep existing" : "token_url, client_id, client_secret, email, password…"}>
+            <Field
+              label="Auth Secrets (JSON)"
+              hint={isEdit ? "Leave blank to keep existing" : undefined}
+            >
               <textarea
                 value={form.auth_secret_json || ""}
                 onChange={(e) => set("auth_secret_json", e.target.value)}
@@ -324,18 +532,10 @@ export default function PipelineForm() {
         </div>
       </Card>
 
-      {/* Webhook */}
       {isWebhook && (
         <Card title={isWebSub ? "WebSub Callback" : "Webhook"}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field
-              label="Path Slug"
-              hint={
-                isWebSub
-                  ? "Hub callback alias, e.g. /webhook/by-slug/edrmc-websub"
-                  : "Human-friendly URL alias (optional)"
-              }
-            >
+            <Field label="Path Slug" hint="Human-friendly URL alias (optional)">
               <input
                 value={form.webhook_path_slug || ""}
                 onChange={(e) => set("webhook_path_slug", e.target.value)}
@@ -349,27 +549,63 @@ export default function PipelineForm() {
                 onChange={(e) => set("webhook_verifier", e.target.value)}
                 className="input"
               >
-                {meta?.webhook_verifiers.map((v) => (
-                  <option key={v} value={v}>{v}</option>
+                {verifiers.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
                 ))}
               </select>
             </Field>
-            <Field label="Webhook Secret" hint={isEdit ? "Leave blank to keep existing" : "Shared secret for signature verification"}>
-              <input
-                type="password"
-                value={form.webhook_secret || ""}
-                onChange={(e) => set("webhook_secret", e.target.value)}
-                className="input"
-                placeholder="••••••••"
-              />
-            </Field>
+            {!isJwtVerifier && (
+              <Field
+                label="Webhook Secret"
+                hint={isEdit ? "Leave blank to keep existing" : undefined}
+              >
+                <input
+                  type="password"
+                  value={form.webhook_secret || ""}
+                  onChange={(e) => set("webhook_secret", e.target.value)}
+                  className="input"
+                  placeholder="••••••••"
+                />
+              </Field>
+            )}
           </div>
+          {isJwtVerifier && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <Field
+                label="Partner public key (PEM)"
+                hint="Used to verify the partner JWT on push. Or set JWKS URL."
+              >
+                <textarea
+                  value={extras.partner_public_key_pem}
+                  onChange={(e) => setExtra("partner_public_key_pem", e.target.value)}
+                  className="input font-mono text-sm"
+                  rows={5}
+                  placeholder="-----BEGIN PUBLIC KEY-----"
+                />
+              </Field>
+              <Field
+                label="Partner JWKS / public key URL"
+                hint="Fetched at verify time. Takes precedence when set."
+              >
+                <input
+                  value={extras.partner_jwks_url}
+                  onChange={(e) => setExtra("partner_jwks_url", e.target.value)}
+                  className="input"
+                  placeholder="https://partner.example/.well-known/jwks.json"
+                />
+              </Field>
+            </div>
+          )}
         </Card>
       )}
 
-      {/* Mapping */}
       <Card title="Mapping">
-        <Field label="Mapper Expression (JMESPath)" hint="Transform source record into DataModel shape; leave blank for passthrough">
+        <Field
+          label="Mapper Expression (JMESPath)"
+          hint="Leave blank for passthrough"
+        >
           <textarea
             value={form.mapper_expression || ""}
             onChange={(e) => set("mapper_expression", e.target.value)}
@@ -380,21 +616,22 @@ export default function PipelineForm() {
         </Field>
       </Card>
 
-      {/* Advanced */}
       <Card title="Advanced">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Max In-Flight" hint="Bounded concurrency; leave empty for default">
+          <Field label="Max In-Flight">
             <input
               type="number"
               min={1}
               value={form.max_in_flight ?? ""}
-              onChange={(e) => set("max_in_flight", e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) =>
+                set("max_in_flight", e.target.value ? Number(e.target.value) : null)
+              }
               className="input"
               placeholder="50"
             />
           </Field>
-          <div /> {/* spacer */}
-          <Field label="Validation Schema (JSON Schema)" hint="Optional; only applied when CONNECTOR_VALIDATE_MAPPED_PAYLOAD=true">
+          <div />
+          <Field label="Validation Schema (JSON Schema)">
             <textarea
               value={form.validation_schema_json || ""}
               onChange={(e) => set("validation_schema_json", e.target.value)}
@@ -404,23 +641,18 @@ export default function PipelineForm() {
             />
           </Field>
         </div>
+        <p className="mt-3 text-xs text-secondary-third">
+          Outbound signing to the registry uses the connector service key
+          (`CONNECTOR_SIGNING_*` env). Configure that on the service, not per pipeline.
+        </p>
       </Card>
 
-      {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-10">
+      <div className="fixed bottom-0 left-0 right-0 bg-neutral-second border-t border-primary-second shadow-lg z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
+          <button type="button" onClick={() => navigate("/")} className="btn-secondary">
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-amber-700 rounded-md hover:bg-amber-800 disabled:opacity-50 transition-colors"
-          >
+          <button type="submit" disabled={saving} className="btn-primary">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {isEdit ? "Save Changes" : "Create Pipeline"}
           </button>
@@ -443,24 +675,16 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-gray-700">
+      <span className="text-sm font-medium text-neutral-first">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-toast-failed ml-0.5">*</span>}
       </span>
-      {hint && <p className="text-xs text-gray-400 mt-0.5 mb-1">{hint}</p>}
-      <div className="mt-1 [&_.input]:w-full [&_.input]:rounded-md [&_.input]:border [&_.input]:border-gray-300 [&_.input]:px-3 [&_.input]:py-2 [&_.input]:text-sm [&_.input]:shadow-sm [&_.input]:focus:border-amber-500 [&_.input]:focus:ring-1 [&_.input]:focus:ring-amber-500 [&_.input]:focus:outline-none">
-        {children}
-      </div>
+      {hint && <p className="text-xs text-secondary-third mt-0.5 mb-1">{hint}</p>}
+      <div className="mt-1">{children}</div>
     </label>
   );
 }
 
-/**
- * Preferred UI is a required <select> backed by the registry metadata
- * endpoint. When the DSN isn't configured (or the lookup fails) we degrade
- * to a plain text input so the operator isn't blocked locally, but
- * `required` ensures they must still supply something.
- */
 function MetadataSelectOrInput({
   value,
   onChange,
@@ -488,9 +712,6 @@ function MetadataSelectOrInput({
     );
   }
 
-  // When editing an existing connector with a value that's no longer in the
-  // live list (deleted partner etc.), keep it selectable so we don't blank
-  // the form silently.
   const items = source!.items;
   const knownValues = new Set(items.map((i) => i.value));
   const showStrayOption = value && !knownValues.has(value);

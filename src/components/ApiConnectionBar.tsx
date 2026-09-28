@@ -43,23 +43,23 @@ export default function ApiConnectionBar() {
     <div
       className={`flex flex-wrap items-center gap-2 px-4 py-2 text-sm border-b ${
         status === "ok"
-          ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+          ? "bg-toast-success/15 border-toast-success/40 text-neutral-first"
           : status === "checking"
-            ? "bg-amber-50 border-amber-200 text-amber-900"
-            : "bg-red-50 border-red-200 text-red-900"
+            ? "bg-primary-first/20 border-primary-second text-neutral-first"
+            : "bg-toast-failed/10 border-toast-failed/40 text-toast-failed"
       }`}
     >
       {status === "checking" ? (
         <Loader2 className="w-4 h-4 animate-spin shrink-0" />
       ) : status === "ok" ? (
-        <CheckCircle2 className="w-4 h-4 shrink-0" />
+        <CheckCircle2 className="w-4 h-4 shrink-0 text-toast-success" />
       ) : (
         <AlertCircle className="w-4 h-4 shrink-0" />
       )}
       <Wifi className="w-4 h-4 shrink-0 opacity-70" />
       <span className="font-medium">API:</span>
-      <code className="text-xs bg-white/60 px-1.5 py-0.5 rounded">{target}</code>
-      {status === "ok" && <span className="text-emerald-800">connected</span>}
+      <code className="text-xs bg-neutral-second/80 px-1.5 py-0.5 rounded-[10px]">{target}</code>
+      {status === "ok" && <span className="text-toast-success">connected</span>}
       {status === "error" && (
         <span>
           not reachable

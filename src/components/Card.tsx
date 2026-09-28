@@ -9,11 +9,19 @@ interface Props {
 
 export default function Card({ title, subtitle, children, className = "" }: Props) {
   return (
-    <section className={`bg-white rounded-lg border border-[#d9d5c5] shadow-sm ${className}`}>
+    <section
+      className={`bg-neutral-second rounded-[10px] border border-dashed border-primary-second shadow-sm ${className}`}
+    >
       {title && (
-        <div className="px-5 py-3 border-b border-[#e8e5d9]">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h2>
-          {subtitle && <p className="mt-1 text-xs text-gray-500 normal-case tracking-normal">{subtitle}</p>}
+        <div className="px-5 py-3 border-b border-dashed border-primary-first/40">
+          <h2 className="text-sm font-semibold text-primary-second uppercase tracking-wide">
+            {title}
+          </h2>
+          {subtitle && (
+            <p className="mt-1 text-xs text-secondary-third normal-case tracking-normal">
+              {subtitle}
+            </p>
+          )}
         </div>
       )}
       <div className="px-5 py-4">{children}</div>

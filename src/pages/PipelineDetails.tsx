@@ -26,6 +26,7 @@ import type {
 } from "../api/types";
 import Card from "../components/Card";
 import StatusBadge from "../components/StatusBadge";
+import { formatLocal, formatRelativeTime } from "../lib/time";
 
 const POLL_REFRESH_MS = 5_000;
 const PAGE_SIZE = 20;
@@ -156,8 +157,8 @@ export default function PipelineDetails() {
 
   const sourceCfg = useMemo(() => parseJson(connector?.source_config_json), [connector]);
 
-  if (loading) return <div className="text-center py-16 text-gray-500">Loading…</div>;
-  if (!connector) return <div className="text-center py-16 text-gray-500">Not found.</div>;
+  if (loading) return <div className="text-center py-16 text-secondary-third">Loading…</div>;
+  if (!connector) return <div className="text-center py-16 text-secondary-third">Not found.</div>;
 
   const isPush = PUSH_TRANSPORTS.has(connector.transport_type);
   const isPoll = !isPush;
@@ -169,19 +170,19 @@ export default function PipelineDetails() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/")}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            className="p-1.5 rounded hover:bg-secondary-second text-secondary-third"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">{connector.name}</h1>
-            <div className="text-xs text-gray-500 font-mono">{connector.connector_id}</div>
+            <h1 className="text-xl font-semibold text-neutral-first">{connector.name}</h1>
+            <div className="text-xs text-secondary-third font-mono">{connector.connector_id}</div>
           </div>
           <StatusBadge enabled={connector.enabled} paused={connector.paused} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex items-center gap-1.5 text-xs text-gray-600 px-2">
+          <label className="inline-flex items-center gap-1.5 text-xs text-secondary-third px-2">
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -194,7 +195,7 @@ export default function PipelineDetails() {
               load();
               setRefreshTick((x) => x + 1);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-first bg-neutral-second border border-primary-second rounded-[10px] hover:bg-secondary-first"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -203,7 +204,7 @@ export default function PipelineDetails() {
             <button
               onClick={handlePollNow}
               disabled={pollingNow || !connector.enabled || connector.paused}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-amber-700 rounded-md hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-neutral-first rounded-[10px] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <PlayCircle className="w-4 h-4" />
               {pollingNow ? "Queuing…" : "Poll now"}
@@ -215,7 +216,7 @@ export default function PipelineDetails() {
               onClick={handleWebsubSync}
               disabled={websubSyncing || !connector.enabled || connector.paused}
               title="Register topics and subscribe this pipeline’s callback URL at the WebSub hub"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-teal-700 rounded-md hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-teal-700 rounded-[10px] hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Radio className="w-4 h-4" />
               {websubSyncing ? "Syncing hub…" : "Sync hub subscriptions"}
@@ -226,14 +227,14 @@ export default function PipelineDetails() {
             onClick={handleClearIdempotency}
             disabled={clearingIdempotency || !connector.enabled || connector.paused}
             title="Remove dedupe keys so repeated event IDs are processed again"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-first bg-neutral-second border border-primary-second rounded-[10px] hover:bg-secondary-first disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             {clearingIdempotency ? "Clearing…" : "Clear idempotency keys"}
           </button>
           <Link
             to={`/edit/${connector.connector_id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-first bg-neutral-second border border-primary-second rounded-[10px] hover:bg-secondary-first"
           >
             <Pencil className="w-4 h-4" />
             Edit
@@ -242,22 +243,22 @@ export default function PipelineDetails() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="p-3 rounded-[10px] bg-toast-failed/10 border border-toast-failed/40 text-toast-failed text-sm">
           {error}
         </div>
       )}
       {message && (
-        <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <div className="p-3 rounded-[10px] bg-primary-first/20 border border-primary-second text-primary-second text-sm">
           {message}
         </div>
       )}
       {websubSyncResult && (
-        <div className="p-4 rounded-md bg-white border border-[#d9d5c5] text-sm space-y-2">
-          <div className="font-medium text-gray-900">WebSub hub sync</div>
-          <div className="text-xs text-gray-600 break-all">
+        <div className="p-4 rounded-[10px] bg-neutral-second border border-primary-second text-sm space-y-2">
+          <div className="font-medium text-neutral-first">WebSub hub sync</div>
+          <div className="text-xs text-secondary-third break-all">
             <span className="font-medium">Hub:</span> {websubSyncResult.hub_url}
           </div>
-          <div className="text-xs text-gray-600 break-all">
+          <div className="text-xs text-secondary-third break-all">
             <span className="font-medium">Callback:</span> {websubSyncResult.callback_url}
           </div>
           <ul className="mt-2 space-y-1.5 text-xs font-mono">
@@ -265,11 +266,11 @@ export default function PipelineDetails() {
               <li
                 key={row.topic}
                 className={`flex flex-wrap gap-x-2 gap-y-0.5 ${
-                  row.subscribe_ok ? "text-green-800" : "text-red-700"
+                  row.subscribe_ok ? "text-green-800" : "text-toast-failed"
                 }`}
               >
                 <span className="break-all">{row.topic}</span>
-                <span className="text-gray-500">
+                <span className="text-secondary-third">
                   register {row.register_http_status ?? "—"} · subscribe{" "}
                   {row.subscribe_http_status ?? "—"}
                 </span>
@@ -279,7 +280,7 @@ export default function PipelineDetails() {
         </div>
       )}
 
-      <div className="flex gap-1 border-b border-[#d9d5c5]">
+      <div className="flex gap-1 border-b border-primary-second">
         {(
           [
             ["overview", "Overview"],
@@ -293,8 +294,8 @@ export default function PipelineDetails() {
             onClick={() => setTab(key)}
             className={`px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 -mb-px transition-colors ${
               tab === key
-                ? "bg-white text-amber-900 border-[#d9d5c5] z-10"
-                : "bg-[#f9f7f0] text-gray-600 border-transparent hover:text-gray-900"
+                ? "bg-neutral-second text-neutral-first border-primary-second z-10"
+                : "bg-secondary-first text-secondary-third border-transparent hover:text-neutral-first"
             }`}
           >
             {label}
@@ -347,7 +348,7 @@ export default function PipelineDetails() {
               <button
                 type="button"
                 onClick={() => setTab("runs")}
-                className="mt-3 text-sm text-amber-800 hover:underline"
+                className="mt-3 text-sm text-primary-second hover:underline"
               >
                 View all runs →
               </button>
@@ -356,33 +357,33 @@ export default function PipelineDetails() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card title="Configuration">
-              <dl className="text-sm divide-y divide-gray-100">
+              <dl className="text-sm divide-y divide-secondary-second">
                 <Row label="Platform" value={connector.platform} />
-                <Row label="Transport" value={<code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{connector.transport_type}</code>} />
-                <Row label="Auth" value={<code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{connector.auth_type}</code>} />
+                <Row label="Transport" value={<code className="text-xs bg-secondary-second px-1.5 py-0.5 rounded">{connector.transport_type}</code>} />
+                <Row label="Auth" value={<code className="text-xs bg-secondary-second px-1.5 py-0.5 rounded">{connector.auth_type}</code>} />
                 <Row label="Data model" value={connector.data_model_mnemonic || "—"} />
                 <Row
                   label="G2P sender"
                   value={
                     connector.g2p_sender_id
-                      ? <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{connector.g2p_sender_id}</code>
-                      : <span className="text-red-600">missing</span>
+                      ? <code className="text-xs bg-secondary-second px-1.5 py-0.5 rounded">{connector.g2p_sender_id}</code>
+                      : <span className="text-toast-failed">missing</span>
                   }
                 />
                 <Row
                   label="Target register"
                   value={
                     connector.g2p_register_mnemonic
-                      ? <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{connector.g2p_register_mnemonic}</code>
-                      : <span className="text-red-600">missing</span>
+                      ? <code className="text-xs bg-secondary-second px-1.5 py-0.5 rounded">{connector.g2p_register_mnemonic}</code>
+                      : <span className="text-toast-failed">missing</span>
                   }
                 />
                 <Row label="Poll interval" value={stats?.poll_interval_seconds ? `${stats.poll_interval_seconds}s` : "—"} />
                 <Row label="Max in-flight" value={connector.max_in_flight ?? "—"} />
                 {sourceCfg && Object.keys(sourceCfg).length > 0 && (
                   <div className="py-2">
-                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Source config</div>
-                    <pre className="text-xs bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto">{JSON.stringify(sourceCfg, null, 2)}</pre>
+                    <div className="text-xs font-medium text-secondary-third uppercase tracking-wide mb-1">Source config</div>
+                    <pre className="text-xs bg-gray-50 border border-secondary-second rounded p-2 overflow-x-auto">{JSON.stringify(sourceCfg, null, 2)}</pre>
                   </div>
                 )}
               </dl>
@@ -390,18 +391,18 @@ export default function PipelineDetails() {
 
             <Card title="Polling">
               {isPush ? (
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-secondary-third">
                   {connector.transport_type === "websub" ? "WebSub" : "Webhook"} connector. Incoming events arrive at{" "}
-                  <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                  <code className="text-xs bg-secondary-second px-1.5 py-0.5 rounded">
                     POST /webhook/by-slug/{connector.webhook_path_slug || "(slug missing)"}
                   </code>
                   . No scheduled polling.
                 </div>
               ) : (
-                <dl className="text-sm divide-y divide-gray-100">
+                <dl className="text-sm divide-y divide-secondary-second">
                   <Row
                     label="Last poll"
-                    value={stats?.last_poll_at ? new Date(stats.last_poll_at).toLocaleString() : "Never"}
+                    value={stats?.last_poll_at ? formatLocal(stats.last_poll_at) : "Never"}
                   />
                   <Row label="Last status" value={<PollStatusChip status={stats?.last_poll_status} />} />
                   <Row label="Fetched last" value={stats?.last_poll_fetched ?? "—"} />
@@ -421,14 +422,14 @@ export default function PipelineDetails() {
                   />
                   {stats?.last_poll_error && (
                     <div className="py-2">
-                      <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">Last poll error</div>
-                      <pre className="text-xs bg-red-50 border border-red-200 rounded p-2 overflow-x-auto text-red-800 whitespace-pre-wrap">{stats.last_poll_error}</pre>
+                      <div className="text-xs font-medium text-toast-failed uppercase tracking-wide mb-1">Last poll error</div>
+                      <pre className="text-xs bg-toast-failed/10 border border-toast-failed/40 rounded p-2 overflow-x-auto text-red-800 whitespace-pre-wrap">{stats.last_poll_error}</pre>
                     </div>
                   )}
                   {stats?.poll_state && Object.keys(stats.poll_state).length > 0 && (
                     <div className="py-2">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cursor (incremental)</div>
+                        <div className="text-xs font-medium text-secondary-third uppercase tracking-wide">Cursor (incremental)</div>
                         <button
                           onClick={async () => {
                             if (!confirm("Reset cursor? Next poll will re-fetch from the beginning.")) return;
@@ -440,12 +441,12 @@ export default function PipelineDetails() {
                               setMessage(formatApiError(e));
                             }
                           }}
-                          className="text-xs text-amber-700 hover:text-amber-900 hover:underline"
+                          className="text-xs text-primary-second hover:text-neutral-first hover:underline"
                         >
                           Reset cursor
                         </button>
                       </div>
-                      <pre className="text-xs bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto">{JSON.stringify(stats.poll_state, null, 2)}</pre>
+                      <pre className="text-xs bg-gray-50 border border-secondary-second rounded p-2 overflow-x-auto">{JSON.stringify(stats.poll_state, null, 2)}</pre>
                     </div>
                   )}
                 </dl>
@@ -454,9 +455,9 @@ export default function PipelineDetails() {
           </div>
 
           {stats != null && stats.dlq_count > 0 && (
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-secondary-third">
               This pipeline has{" "}
-              <button type="button" className="text-amber-800 font-medium hover:underline" onClick={() => setTab("dlq")}>
+              <button type="button" className="text-primary-second font-medium hover:underline" onClick={() => setTab("dlq")}>
                 {stats.dlq_count} dead-letter {stats.dlq_count === 1 ? "entry" : "entries"}
               </button>
               .
@@ -536,17 +537,17 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
   return (
     <Card title="Ingestion runs" subtitle="Expand a row to load source / mapped / outbound payload (when stored). Duplicate ODK deliveries increment ×n on the canonical run.">
       <div className="flex flex-wrap gap-3 mb-4 items-end">
-        <label className="block text-xs text-gray-600">
+        <label className="block text-xs text-secondary-third">
           <span className="block mb-1">Search</span>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && applySearch()}
-            className="input rounded-md border border-gray-300 px-2 py-1.5 text-sm w-56"
+            className="input rounded-[10px] border border-primary-second px-2 py-1.5 text-sm w-56"
             placeholder="event id, run id, correlation…"
           />
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className="block text-xs text-secondary-third">
           <span className="block mb-1">Status</span>
           <select
             value={status}
@@ -554,7 +555,7 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
               setStatus(e.target.value);
               setPage(0);
             }}
-            className="input rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            className="input rounded-[10px] border border-primary-second px-2 py-1.5 text-sm"
           >
             <option value="">Any</option>
             <option value="SUCCESS">SUCCESS</option>
@@ -566,24 +567,24 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
         <button
           type="button"
           onClick={applySearch}
-          className="px-3 py-1.5 text-sm bg-amber-700 text-white rounded-md hover:bg-amber-800"
+          className="px-3 py-1.5 text-sm bg-neutral-first text-white rounded-[10px] hover:opacity-90"
         >
           Search
         </button>
       </div>
 
-      {err && <div className="mb-3 text-sm text-red-600">{err}</div>}
+      {err && <div className="mb-3 text-sm text-toast-failed">{err}</div>}
 
       {loading ? (
-        <div className="text-gray-500 py-8">Loading…</div>
+        <div className="text-secondary-third py-8">Loading…</div>
       ) : !data?.items.length ? (
-        <div className="text-gray-500 py-8">No runs match.</div>
+        <div className="text-secondary-third py-8">No runs match.</div>
       ) : (
         <>
-          <div className="overflow-x-auto border border-gray-200 rounded-md">
+          <div className="overflow-x-auto border border-secondary-second rounded-[10px]">
             <table className="min-w-full text-sm">
-              <thead className="bg-[#f9f7f0]">
-                <tr className="text-left text-xs text-gray-600 uppercase">
+              <thead className="bg-secondary-first">
+                <tr className="text-left text-xs text-secondary-third uppercase">
                   <th className="px-3 py-2 w-8" />
                   <th className="px-3 py-2">Run</th>
                   <th className="px-3 py-2">Event</th>
@@ -593,7 +594,7 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
                   <th className="px-3 py-2">Last activity</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-secondary-second">
                 {data.items.map((r) => (
                   <Fragment key={r.run_id}>
                     <tr className="hover:bg-[#faf8f2]">
@@ -601,20 +602,20 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
                         <button
                           type="button"
                           onClick={() => togglePayload(r.run_id)}
-                          className="p-1 text-gray-500 hover:text-gray-800"
+                          className="p-1 text-secondary-third hover:text-gray-800"
                           aria-label="Toggle payload"
                         >
                           {expanded === r.run_id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </button>
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">{r.run_id.slice(0, 12)}…</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[200px] truncate" title={r.source_event_id || ""}>
+                      <td className="px-3 py-2 text-neutral-first max-w-[200px] truncate" title={r.source_event_id || ""}>
                         {r.source_event_id || "—"}
                       </td>
                       <td className="px-3 py-2"><RunStatusChip status={r.status} /></td>
                       <td className="px-3 py-2">
                         {r.redelivery_count > 0 ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900" title="Extra deliveries after first success">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-primary-first/30 text-neutral-first" title="Extra deliveries after first success">
                             ×{r.redelivery_count}
                           </span>
                         ) : (
@@ -622,15 +623,15 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
                         )}
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">{r.registry_correlation_id || "—"}</td>
-                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
+                      <td className="px-3 py-2 text-secondary-third whitespace-nowrap">
                         <RelativeTime iso={r.updated_at || r.created_at} />
                       </td>
                     </tr>
                     {expanded === r.run_id && (
                       <tr className="bg-gray-50">
                         <td colSpan={7} className="px-3 py-3">
-                          <div className="text-xs text-gray-500 mb-1">Payload (debug)</div>
-                          <pre className="text-xs bg-white border border-gray-200 rounded p-2 overflow-x-auto max-h-96 overflow-y-auto">
+                          <div className="text-xs text-secondary-third mb-1">Payload (debug)</div>
+                          <pre className="text-xs bg-neutral-second border border-secondary-second rounded p-2 overflow-x-auto max-h-96 overflow-y-auto">
                             {JSON.stringify(
                               payloadByRun[r.run_id]?.run_payload ?? { _note: "Loading or disabled (CONNECTOR_STORE_RUN_PAYLOADS)…" },
                               null,
@@ -645,7 +646,7 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-3 text-sm text-secondary-third">
             <span>
               {data.total === 0 ? "0" : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, data.total)}`} of {data.total}
             </span>
@@ -734,17 +735,17 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
   return (
     <Card title="Dead letter queue" subtitle="Failed ingestions for this pipeline. Replay re-queues processing.">
       <div className="flex flex-wrap gap-3 mb-4 items-end">
-        <label className="block text-xs text-gray-600">
+        <label className="block text-xs text-secondary-third">
           <span className="block mb-1">Search</span>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && applySearch()}
-            className="input rounded-md border border-gray-300 px-2 py-1.5 text-sm w-56"
+            className="input rounded-[10px] border border-primary-second px-2 py-1.5 text-sm w-56"
             placeholder="dl id, event, error…"
           />
         </label>
-        <label className="block text-xs text-gray-600">
+        <label className="block text-xs text-secondary-third">
           <span className="block mb-1">Category</span>
           <select
             value={category}
@@ -752,7 +753,7 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
               setCategory(e.target.value);
               setPage(0);
             }}
-            className="input rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            className="input rounded-[10px] border border-primary-second px-2 py-1.5 text-sm"
           >
             <option value="">Any</option>
             <option value="transient">transient</option>
@@ -764,23 +765,23 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
         <button
           type="button"
           onClick={applySearch}
-          className="px-3 py-1.5 text-sm bg-amber-700 text-white rounded-md hover:bg-amber-800"
+          className="px-3 py-1.5 text-sm bg-neutral-first text-white rounded-[10px] hover:opacity-90"
         >
           Search
         </button>
       </div>
 
-      {err && <div className="mb-3 text-sm text-red-600">{err}</div>}
+      {err && <div className="mb-3 text-sm text-toast-failed">{err}</div>}
 
       {loading ? (
-        <div className="text-gray-500 py-8">Loading…</div>
+        <div className="text-secondary-third py-8">Loading…</div>
       ) : !data?.items.length ? (
-        <div className="text-gray-500 py-8">No dead-letter entries.</div>
+        <div className="text-secondary-third py-8">No dead-letter entries.</div>
       ) : (
         <>
           <div className="space-y-2">
             {data.items.map((d) => (
-              <div key={d.dl_id} className="border border-red-200 bg-red-50/50 rounded-md p-3 text-sm">
+              <div key={d.dl_id} className="border border-toast-failed/40 bg-toast-failed/10/50 rounded-[10px] p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
@@ -798,12 +799,12 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
                     {d.dl_id.slice(0, 14)}…
                   </button>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">{d.error_category || "unknown"}</span>
+                    <span className="text-xs text-secondary-third">{d.error_category || "unknown"}</span>
                     <button
                       type="button"
                       disabled={replaying.has(d.dl_id)}
                       onClick={() => replay(d.dl_id)}
-                      className="text-xs px-2 py-1 bg-white border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
+                      className="text-xs px-2 py-1 bg-neutral-second border border-red-300 rounded hover:bg-toast-failed/10 disabled:opacity-50"
                     >
                       {replaying.has(d.dl_id) ? "Replaying…" : "Replay"}
                     </button>
@@ -811,14 +812,14 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
                 </div>
                 <div className="text-red-800 mt-1 whitespace-pre-wrap break-words text-xs">{d.error}</div>
                 {expanded.has(d.dl_id) && d.payload && (
-                  <pre className="mt-2 text-xs bg-white border border-red-100 rounded p-2 overflow-x-auto max-h-64 overflow-y-auto">
+                  <pre className="mt-2 text-xs bg-neutral-second border border-red-100 rounded p-2 overflow-x-auto max-h-64 overflow-y-auto">
                     {JSON.stringify(d.payload, null, 2)}
                   </pre>
                 )}
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-3 text-sm text-secondary-third">
             <span>
               {data.total === 0 ? "0" : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, data.total)}`} of {data.total}
             </span>
@@ -850,7 +851,7 @@ function PipelineDLQTab({ connectorId, refreshTick }: { connectorId: string; ref
 function PollStatusBanner({ stats }: { stats: ConnectorStats }) {
   if (!stats.last_poll_at) {
     return (
-      <div className="flex items-start gap-3 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+      <div className="flex items-start gap-3 p-3 rounded-[10px] bg-blue-50 border border-blue-200 text-blue-800 text-sm">
         <Clock className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
           <div className="font-medium">Never polled yet.</div>
@@ -863,12 +864,12 @@ function PollStatusBanner({ stats }: { stats: ConnectorStats }) {
   }
   if (stats.last_poll_status === "FAILED") {
     return (
-      <div className="flex items-start gap-3 p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+      <div className="flex items-start gap-3 p-3 rounded-[10px] bg-toast-failed/10 border border-toast-failed/40 text-red-800 text-sm">
         <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
           <div className="font-medium">Last poll failed.</div>
           <div className="text-xs mt-0.5">
-            {new Date(stats.last_poll_at).toLocaleString()} —{" "}
+            {formatLocal(stats.last_poll_at)} —{" "}
             {stats.last_poll_error?.split("\n")[0]?.slice(0, 200) || "Unknown error"}
           </div>
         </div>
@@ -876,14 +877,14 @@ function PollStatusBanner({ stats }: { stats: ConnectorStats }) {
     );
   }
   return (
-    <div className="flex items-start gap-3 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
+    <div className="flex items-start gap-3 p-3 rounded-[10px] bg-green-50 border border-green-200 text-green-800 text-sm">
       <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
       <div>
         <div className="font-medium">
           Last poll {stats.last_poll_status?.toLowerCase() || "ok"} · fetched {stats.last_poll_fetched ?? 0}
         </div>
         <div className="text-xs mt-0.5">
-          {new Date(stats.last_poll_at).toLocaleString()}
+          {formatLocal(stats.last_poll_at)}
           {stats.last_poll_duration_ms != null && ` · ${stats.last_poll_duration_ms} ms`}
         </div>
       </div>
@@ -906,11 +907,11 @@ function Kpi({
     tone === "green"
       ? "text-green-700"
       : tone === "red"
-      ? "text-red-700"
-      : "text-gray-900";
+      ? "text-toast-failed"
+      : "text-neutral-first";
   return (
-    <div className="bg-white rounded-lg border border-[#d9d5c5] shadow-sm p-4">
-      <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-wide">
+    <div className="bg-neutral-second rounded-[10px] border border-primary-second shadow-sm p-4">
+      <div className="flex items-center gap-2 text-xs text-secondary-third uppercase tracking-wide">
         {icon}
         {label}
       </div>
@@ -922,21 +923,21 @@ function Kpi({
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="py-2 flex items-start justify-between gap-3">
-      <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0">{label}</dt>
+      <dt className="text-xs font-medium text-secondary-third uppercase tracking-wide shrink-0">{label}</dt>
       <dd className="text-sm text-gray-800 text-right break-words">{value}</dd>
     </div>
   );
 }
 
 function PollStatusChip({ status }: { status?: string | null }) {
-  if (!status) return <span className="text-gray-400">—</span>;
+  if (!status) return <span className="text-secondary-third">—</span>;
   const map: Record<string, string> = {
     SUCCESS: "bg-green-100 text-green-800",
     PARTIAL: "bg-yellow-100 text-yellow-800",
     FAILED: "bg-red-100 text-red-800",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || "bg-gray-100 text-gray-700"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || "bg-secondary-second text-neutral-first"}`}>
       {status}
     </span>
   );
@@ -947,27 +948,18 @@ function RunStatusChip({ status }: { status: string }) {
     SUCCESS: "bg-green-100 text-green-800",
     FAILED: "bg-red-100 text-red-800",
     RETRYING: "bg-yellow-100 text-yellow-800",
-    PENDING: "bg-gray-100 text-gray-700",
+    PENDING: "bg-secondary-second text-neutral-first",
     IN_PROGRESS: "bg-blue-100 text-blue-800",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || "bg-gray-100 text-gray-700"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[status] || "bg-secondary-second text-neutral-first"}`}>
       {status}
     </span>
   );
 }
 
 function RelativeTime({ iso }: { iso: string }) {
-  const d = new Date(iso);
-  const diff = (d.getTime() - Date.now()) / 1000;
-  const abs = Math.abs(diff);
-  const unit =
-    abs < 60 ? `${Math.round(abs)}s` :
-    abs < 3600 ? `${Math.round(abs / 60)}m` :
-    abs < 86400 ? `${Math.round(abs / 3600)}h` :
-    `${Math.round(abs / 86400)}d`;
-  const label = diff >= 0 ? `in ${unit}` : `${unit} ago`;
-  return <span title={d.toLocaleString()}>{label}</span>;
+  return <span title={formatLocal(iso)}>{formatRelativeTime(iso)}</span>;
 }
 
 function parseJson(v: string | null | undefined): Record<string, unknown> | null {

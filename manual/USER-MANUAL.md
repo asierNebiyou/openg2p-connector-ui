@@ -17,7 +17,7 @@ date: "2026"
 | Product | OpenG2P Connector Service + Connector Admin UI |
 | Audience | Integration operators, registry administrators, support staff |
 | Scope | How to access, navigate, configure, and operate integration pipelines |
-| Version | 1.1 |
+| Version | 1.2 |
 
 ### Revision history
 
@@ -25,6 +25,7 @@ date: "2026"
 | ------- | ---- | ------- |
 | 1.0 | 2026 | Initial release with annotated screenshots. |
 | 1.1 | 2026 | Environment-agnostic rewrite; element-aligned annotations; task-oriented walkthroughs. |
+| 1.2 | 2026 | Cursor/timeout form fields; JWT partner verify; outbound connector signing note. |
 
 ### How to use this manual
 
@@ -258,9 +259,19 @@ These fields populate the envelope sent to the registry.
 
 When the service has registry metadata configured, these appear as dropdowns; otherwise type the mnemonic.
 
-### 7.3 Source configuration (JSON)
+### 7.3 Source configuration
 
-Transport-specific connection details. Replace placeholders with your own values.
+For scheduled fetch pipelines, use the form fields for:
+
+| Field | Description |
+| ----- | ----------- |
+| **Cursor field** | Source attribute used to request only new records. |
+| **Cursor mode** | `timestamp`, `updated_at`, `sequence`, or `full_scan`. |
+| **Page size / Max pages** | How much is fetched per run. |
+| **HTTP timeout** | Per-pipeline source HTTP timeout (seconds). |
+| **Partner ingest timeout** | Per-pipeline timeout for delivery to the registry Partner API. |
+
+Additional connection details still go in **Additional source config (JSON)**. Replace placeholders with your own values.
 
 **ODK Central (poll):**
 
@@ -295,15 +306,18 @@ Transport-specific connection details. Replace placeholders with your own values
 
 Secrets are **write-only**: the UI never displays stored credentials after you save.
 
-### 7.5 Webhook / WebSub
+### 7.5 Webhook
 
-Shown for `webhook` and `websub` transports.
+Shown for push transports.
 
 | Field | Description |
 | ----- | ----------- |
-| **Path Slug** | URL alias: `/webhook/by-slug/<your-slug>`. |
-| **Verifier** | Signature algorithm used to validate inbound requests. |
-| **Webhook Secret** | Shared secret for signature verification. |
+| **Path Slug** | Readable URL alias for the pipeline's inbound address. |
+| **Verifier** | How inbound requests are checked: partner signature (preferred), shared secret, shared token, or none. |
+| **Webhook Secret** | Shared secret when the source uses secret-based verification. |
+| **Partner public key** / **key URL** | When using partner signatures: the partner's public key, or a published URL where that key can be fetched. |
+
+Outbound delivery to the registry is signed with the connector's own key, configured once for the deployment rather than on each pipeline.
 
 ### 7.6 Mapping and advanced options
 
