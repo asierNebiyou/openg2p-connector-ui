@@ -25,7 +25,7 @@ date: "2026"
 | ------- | ---- | ------- |
 | 1.0 | 2026 | Initial release with annotated screenshots. |
 | 1.1 | 2026 | Environment-agnostic rewrite; element-aligned annotations; task-oriented walkthroughs. |
-| 1.2 | 2026 | Cursor/timeout form fields; JWT partner verify; outbound connector signing note. |
+| 1.2 | 2026 | Cursor/timeout form fields; partner JSON Web Token verify; outbound connector signing note. |
 
 ### How to use this manual
 

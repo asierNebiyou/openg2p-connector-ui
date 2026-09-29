@@ -1,31 +1,35 @@
 /** Treat naive ISO timestamps from the API as UTC. */
-export function parseUtc(iso: string | null | undefined): Date | null {
-  if (!iso) return null;
-  const trimmed = iso.trim();
+export function parseUtcTimestamp(
+  timestamp: string | null | undefined
+): Date | null {
+  if (!timestamp) return null;
+  const trimmed = timestamp.trim();
   if (!trimmed) return null;
   const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
   const normalized = hasZone ? trimmed : `${trimmed}Z`;
-  const d = new Date(normalized);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function formatLocal(iso: string | null | undefined): string {
-  const d = parseUtc(iso);
-  return d ? d.toLocaleString() : "—";
+export function formatLocal(timestamp: string | null | undefined): string {
+  const date = parseUtcTimestamp(timestamp);
+  return date ? date.toLocaleString() : "—";
 }
 
-export function formatRelativeTime(iso: string | null | undefined): string {
-  const d = parseUtc(iso);
-  if (!d) return "—";
-  const diff = (d.getTime() - Date.now()) / 1000;
-  const abs = Math.abs(diff);
+export function formatRelativeTime(
+  timestamp: string | null | undefined
+): string {
+  const date = parseUtcTimestamp(timestamp);
+  if (!date) return "—";
+  const differenceSeconds = (date.getTime() - Date.now()) / 1000;
+  const absoluteSeconds = Math.abs(differenceSeconds);
   const unit =
-    abs < 60
-      ? `${Math.round(abs)}s`
-      : abs < 3600
-        ? `${Math.round(abs / 60)}m`
-        : abs < 86400
-          ? `${Math.round(abs / 3600)}h`
-          : `${Math.round(abs / 86400)}d`;
-  return diff >= 0 ? `in ${unit}` : `${unit} ago`;
+    absoluteSeconds < 60
+      ? `${Math.round(absoluteSeconds)}s`
+      : absoluteSeconds < 3600
+        ? `${Math.round(absoluteSeconds / 60)}m`
+        : absoluteSeconds < 86400
+          ? `${Math.round(absoluteSeconds / 3600)}h`
+          : `${Math.round(absoluteSeconds / 86400)}d`;
+  return differenceSeconds >= 0 ? `in ${unit}` : `${unit} ago`;
 }

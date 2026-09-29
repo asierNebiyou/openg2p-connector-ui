@@ -340,7 +340,7 @@ export default function PipelineDetails() {
                   label="Last activity"
                   value={
                     <RelativeTime
-                      iso={stats.last_run.updated_at || stats.last_run.created_at}
+                      timestamp={stats.last_run.updated_at || stats.last_run.created_at}
                     />
                   }
                 />
@@ -414,7 +414,7 @@ export default function PipelineDetails() {
                     label="Next poll"
                     value={
                       stats?.next_poll_at
-                        ? <RelativeTime iso={stats.next_poll_at} />
+                        ? <RelativeTime timestamp={stats.next_poll_at} />
                         : stats?.poll_interval_seconds
                         ? "Soon (never polled)"
                         : "—"
@@ -624,7 +624,7 @@ function PipelineRunsTab({ connectorId, refreshTick }: { connectorId: string; re
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">{r.registry_correlation_id || "—"}</td>
                       <td className="px-3 py-2 text-secondary-third whitespace-nowrap">
-                        <RelativeTime iso={r.updated_at || r.created_at} />
+                        <RelativeTime timestamp={r.updated_at || r.created_at} />
                       </td>
                     </tr>
                     {expanded === r.run_id && (
@@ -958,8 +958,10 @@ function RunStatusChip({ status }: { status: string }) {
   );
 }
 
-function RelativeTime({ iso }: { iso: string }) {
-  return <span title={formatLocal(iso)}>{formatRelativeTime(iso)}</span>;
+function RelativeTime({ timestamp }: { timestamp: string }) {
+  return (
+    <span title={formatLocal(timestamp)}>{formatRelativeTime(timestamp)}</span>
+  );
 }
 
 function parseJson(v: string | null | undefined): Record<string, unknown> | null {

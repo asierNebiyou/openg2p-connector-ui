@@ -19,6 +19,7 @@ const CURSOR_KEYS = [
   "http_timeout_seconds",
   "partner_ingest_timeout_seconds",
   "partner_public_key_pem",
+  "partner_json_web_key_set_url",
   "partner_jwks_url",
 ] as const;
 
@@ -30,7 +31,7 @@ type SourceExtras = {
   http_timeout_seconds: string;
   partner_ingest_timeout_seconds: string;
   partner_public_key_pem: string;
-  partner_jwks_url: string;
+  partner_json_web_key_set_url: string;
   advanced_json: string;
 };
 
@@ -42,7 +43,7 @@ const EMPTY_EXTRAS: SourceExtras = {
   http_timeout_seconds: "",
   partner_ingest_timeout_seconds: "",
   partner_public_key_pem: "",
-  partner_jwks_url: "",
+  partner_json_web_key_set_url: "",
   advanced_json: "",
 };
 
@@ -84,7 +85,9 @@ function parseSourceConfig(raw: string | null | undefined): SourceExtras {
           ? String(obj.partner_ingest_timeout_seconds)
           : "",
       partner_public_key_pem: String(obj.partner_public_key_pem ?? ""),
-      partner_jwks_url: String(obj.partner_jwks_url ?? ""),
+      partner_json_web_key_set_url: String(
+        obj.partner_json_web_key_set_url ?? obj.partner_jwks_url ?? ""
+      ),
       advanced_json: Object.keys(advanced).length
         ? JSON.stringify(advanced, null, 2)
         : "",
@@ -119,8 +122,9 @@ function buildSourceConfigJson(extras: SourceExtras): string {
   if (extras.partner_public_key_pem.trim()) {
     merged.partner_public_key_pem = extras.partner_public_key_pem.trim();
   }
-  if (extras.partner_jwks_url.trim()) {
-    merged.partner_jwks_url = extras.partner_jwks_url.trim();
+  if (extras.partner_json_web_key_set_url.trim()) {
+    merged.partner_json_web_key_set_url =
+      extras.partner_json_web_key_set_url.trim();
   }
   return Object.keys(merged).length ? JSON.stringify(merged, null, 2) : "";
 }
@@ -142,36 +146,37 @@ export default function PipelineForm() {
   useEffect(() => {
     (async () => {
       try {
-        const [m, pRes, rRes] = await Promise.all([
-          api.meta(),
-          api.listPartners().catch(() => ({ configured: false, items: [] })),
-          api.listRegisters().catch(() => ({ configured: false, items: [] })),
-        ]);
-        setMeta(m);
-        setPartners(pRes);
-        setRegisters(rRes);
+        const [metaResponse, partnersResponse, registersResponse] =
+          await Promise.all([
+            api.meta(),
+            api.listPartners().catch(() => ({ configured: false, items: [] })),
+            api.listRegisters().catch(() => ({ configured: false, items: [] })),
+          ]);
+        setMeta(metaResponse);
+        setPartners(partnersResponse);
+        setRegisters(registersResponse);
         if (id) {
-          const c = await api.getConnector(id);
+          const connector = await api.getConnector(id);
           setForm({
-            name: c.name,
-            platform: c.platform,
-            transport_type: c.transport_type,
-            enabled: c.enabled,
-            paused: c.paused,
-            data_model_mnemonic: c.data_model_mnemonic || "",
-            mapper_expression: c.mapper_expression || "",
-            g2p_sender_id: c.g2p_sender_id || "",
-            g2p_register_mnemonic: c.g2p_register_mnemonic || "",
-            source_config_json: c.source_config_json || "",
-            auth_type: c.auth_type,
+            name: connector.name,
+            platform: connector.platform,
+            transport_type: connector.transport_type,
+            enabled: connector.enabled,
+            paused: connector.paused,
+            data_model_mnemonic: connector.data_model_mnemonic || "",
+            mapper_expression: connector.mapper_expression || "",
+            g2p_sender_id: connector.g2p_sender_id || "",
+            g2p_register_mnemonic: connector.g2p_register_mnemonic || "",
+            source_config_json: connector.source_config_json || "",
+            auth_type: connector.auth_type,
             auth_secret_json: "",
             webhook_secret: "",
-            webhook_path_slug: c.webhook_path_slug || "",
-            webhook_verifier: c.webhook_verifier,
-            max_in_flight: c.max_in_flight,
-            validation_schema_json: c.validation_schema_json || "",
+            webhook_path_slug: connector.webhook_path_slug || "",
+            webhook_verifier: connector.webhook_verifier,
+            max_in_flight: connector.max_in_flight,
+            validation_schema_json: connector.validation_schema_json || "",
           });
-          setExtras(parseSourceConfig(c.source_config_json));
+          setExtras(parseSourceConfig(connector.source_config_json));
         }
       } catch (e: unknown) {
         setError(formatApiError(e));
@@ -181,18 +186,22 @@ export default function PipelineForm() {
     })();
   }, [id]);
 
-  const set = <K extends keyof ConnectorCreate>(key: K, val: ConnectorCreate[K]) =>
-    setForm((prev) => ({ ...prev, [key]: val }));
+  const setField = <K extends keyof ConnectorCreate>(
+    key: K,
+    value: ConnectorCreate[K]
+  ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const setExtra = <K extends keyof SourceExtras>(key: K, val: SourceExtras[K]) =>
-    setExtras((prev) => ({ ...prev, [key]: val }));
+  const setSourceExtra = <K extends keyof SourceExtras>(
+    key: K,
+    value: SourceExtras[K]
+  ) => setExtras((prev) => ({ ...prev, [key]: value }));
 
   const transportHint = meta?.transport_hints[form.transport_type] || "";
   const isWebhook = transportHint === "webhook";
   const isPoll = transportHint === "poll";
   const isConsumer = transportHint === "consumer";
   const isWebSub = form.transport_type === "websub";
-  const isJwtVerifier = form.webhook_verifier === "jwt_signature";
+  const usesJsonWebTokenVerifier = form.webhook_verifier === "jwt_signature";
 
   const showSourceCard = isPoll || isConsumer || isWebhook;
 
@@ -292,7 +301,7 @@ export default function PipelineForm() {
             <input
               required
               value={form.name}
-              onChange={(e) => set("name", e.target.value)}
+              onChange={(e) => setField("name", e.target.value)}
               className="input"
               placeholder="ODK Household Poll"
             />
@@ -301,7 +310,7 @@ export default function PipelineForm() {
             <input
               required
               value={form.platform}
-              onChange={(e) => set("platform", e.target.value)}
+              onChange={(e) => setField("platform", e.target.value)}
               className="input"
               placeholder="odk, generic, kafka_registry_events…"
             />
@@ -310,7 +319,7 @@ export default function PipelineForm() {
             <select
               required
               value={form.transport_type}
-              onChange={(e) => set("transport_type", e.target.value)}
+              onChange={(e) => setField("transport_type", e.target.value)}
               className="input"
             >
               <option value="">Select…</option>
@@ -324,7 +333,7 @@ export default function PipelineForm() {
           <Field label="Data Model Mnemonic">
             <input
               value={form.data_model_mnemonic || ""}
-              onChange={(e) => set("data_model_mnemonic", e.target.value)}
+              onChange={(e) => setField("data_model_mnemonic", e.target.value)}
               className="input"
               placeholder="ODK_HOUSEHOLD"
             />
@@ -335,7 +344,7 @@ export default function PipelineForm() {
             <input
               type="checkbox"
               checked={form.enabled}
-              onChange={(e) => set("enabled", e.target.checked)}
+              onChange={(e) => setField("enabled", e.target.checked)}
               className="rounded border-primary-second text-primary-second focus:ring-primary-first"
             />
             Enabled
@@ -344,7 +353,7 @@ export default function PipelineForm() {
             <input
               type="checkbox"
               checked={form.paused}
-              onChange={(e) => set("paused", e.target.checked)}
+              onChange={(e) => setField("paused", e.target.checked)}
               className="rounded border-primary-second text-primary-second focus:ring-primary-first"
             />
             Paused
@@ -368,7 +377,7 @@ export default function PipelineForm() {
           >
             <MetadataSelectOrInput
               value={form.g2p_sender_id}
-              onChange={(v) => set("g2p_sender_id", v)}
+              onChange={(v) => setField("g2p_sender_id", v)}
               source={partners}
               placeholder="test-partner"
               required
@@ -385,7 +394,7 @@ export default function PipelineForm() {
           >
             <MetadataSelectOrInput
               value={form.g2p_register_mnemonic}
-              onChange={(v) => set("g2p_register_mnemonic", v)}
+              onChange={(v) => setField("g2p_register_mnemonic", v)}
               source={registers}
               placeholder="farmer_register"
               required
@@ -404,7 +413,7 @@ export default function PipelineForm() {
               >
                 <input
                   value={extras.incremental_field}
-                  onChange={(e) => setExtra("incremental_field", e.target.value)}
+                  onChange={(e) => setSourceExtra("incremental_field", e.target.value)}
                   className="input"
                   placeholder="__system/submissionDate"
                 />
@@ -412,7 +421,7 @@ export default function PipelineForm() {
               <Field label="Cursor mode">
                 <select
                   value={extras.incremental_mode}
-                  onChange={(e) => setExtra("incremental_mode", e.target.value)}
+                  onChange={(e) => setSourceExtra("incremental_mode", e.target.value)}
                   className="input"
                 >
                   <option value="timestamp">timestamp</option>
@@ -426,7 +435,7 @@ export default function PipelineForm() {
                   type="number"
                   min={1}
                   value={extras.page_size}
-                  onChange={(e) => setExtra("page_size", e.target.value)}
+                  onChange={(e) => setSourceExtra("page_size", e.target.value)}
                   className="input"
                   placeholder="100"
                 />
@@ -436,7 +445,7 @@ export default function PipelineForm() {
                   type="number"
                   min={1}
                   value={extras.max_pages}
-                  onChange={(e) => setExtra("max_pages", e.target.value)}
+                  onChange={(e) => setSourceExtra("max_pages", e.target.value)}
                   className="input"
                   placeholder="50"
                 />
@@ -454,7 +463,7 @@ export default function PipelineForm() {
                 min={5}
                 max={300}
                 value={extras.http_timeout_seconds}
-                onChange={(e) => setExtra("http_timeout_seconds", e.target.value)}
+                onChange={(e) => setSourceExtra("http_timeout_seconds", e.target.value)}
                 className="input"
                 placeholder="60"
               />
@@ -469,7 +478,7 @@ export default function PipelineForm() {
                 max={300}
                 value={extras.partner_ingest_timeout_seconds}
                 onChange={(e) =>
-                  setExtra("partner_ingest_timeout_seconds", e.target.value)
+                  setSourceExtra("partner_ingest_timeout_seconds", e.target.value)
                 }
                 className="input"
                 placeholder="30"
@@ -487,7 +496,7 @@ export default function PipelineForm() {
           >
             <textarea
               value={extras.advanced_json}
-              onChange={(e) => setExtra("advanced_json", e.target.value)}
+              onChange={(e) => setSourceExtra("advanced_json", e.target.value)}
               className="input font-mono text-sm"
               rows={6}
               placeholder={
@@ -505,7 +514,7 @@ export default function PipelineForm() {
           <Field label="Auth Type">
             <select
               value={form.auth_type}
-              onChange={(e) => set("auth_type", e.target.value)}
+              onChange={(e) => setField("auth_type", e.target.value)}
               className="input"
             >
               {meta?.auth_types.map((t) => (
@@ -522,7 +531,7 @@ export default function PipelineForm() {
             >
               <textarea
                 value={form.auth_secret_json || ""}
-                onChange={(e) => set("auth_secret_json", e.target.value)}
+                onChange={(e) => setField("auth_secret_json", e.target.value)}
                 className="input font-mono text-sm"
                 rows={4}
                 placeholder='{"email": "admin@example.com", "password": "***"}'
@@ -538,7 +547,7 @@ export default function PipelineForm() {
             <Field label="Path Slug" hint="Human-friendly URL alias (optional)">
               <input
                 value={form.webhook_path_slug || ""}
-                onChange={(e) => set("webhook_path_slug", e.target.value)}
+                onChange={(e) => setField("webhook_path_slug", e.target.value)}
                 className="input"
                 placeholder="odk-farm-survey-prod"
               />
@@ -546,7 +555,7 @@ export default function PipelineForm() {
             <Field label="Verifier">
               <select
                 value={form.webhook_verifier}
-                onChange={(e) => set("webhook_verifier", e.target.value)}
+                onChange={(e) => setField("webhook_verifier", e.target.value)}
                 className="input"
               >
                 {verifiers.map((v) => (
@@ -556,7 +565,7 @@ export default function PipelineForm() {
                 ))}
               </select>
             </Field>
-            {!isJwtVerifier && (
+            {!usesJsonWebTokenVerifier && (
               <Field
                 label="Webhook Secret"
                 hint={isEdit ? "Leave blank to keep existing" : undefined}
@@ -564,34 +573,36 @@ export default function PipelineForm() {
                 <input
                   type="password"
                   value={form.webhook_secret || ""}
-                  onChange={(e) => set("webhook_secret", e.target.value)}
+                  onChange={(e) => setField("webhook_secret", e.target.value)}
                   className="input"
                   placeholder="••••••••"
                 />
               </Field>
             )}
           </div>
-          {isJwtVerifier && (
+          {usesJsonWebTokenVerifier && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <Field
                 label="Partner public key (PEM)"
-                hint="Used to verify the partner JWT on push. Or set JWKS URL."
+                hint="Used to verify the partner JSON Web Token on push. Or set a JSON Web Key Set URL."
               >
                 <textarea
                   value={extras.partner_public_key_pem}
-                  onChange={(e) => setExtra("partner_public_key_pem", e.target.value)}
+                  onChange={(e) => setSourceExtra("partner_public_key_pem", e.target.value)}
                   className="input font-mono text-sm"
                   rows={5}
                   placeholder="-----BEGIN PUBLIC KEY-----"
                 />
               </Field>
               <Field
-                label="Partner JWKS / public key URL"
+                label="Partner JSON Web Key Set URL"
                 hint="Fetched at verify time. Takes precedence when set."
               >
                 <input
-                  value={extras.partner_jwks_url}
-                  onChange={(e) => setExtra("partner_jwks_url", e.target.value)}
+                  value={extras.partner_json_web_key_set_url}
+                  onChange={(e) =>
+                    setSourceExtra("partner_json_web_key_set_url", e.target.value)
+                  }
                   className="input"
                   placeholder="https://partner.example/.well-known/jwks.json"
                 />
@@ -608,7 +619,7 @@ export default function PipelineForm() {
         >
           <textarea
             value={form.mapper_expression || ""}
-            onChange={(e) => set("mapper_expression", e.target.value)}
+            onChange={(e) => setField("mapper_expression", e.target.value)}
             className="input font-mono text-sm"
             rows={4}
             placeholder="{name: outer.name, age: outer.age}"
@@ -624,7 +635,7 @@ export default function PipelineForm() {
               min={1}
               value={form.max_in_flight ?? ""}
               onChange={(e) =>
-                set("max_in_flight", e.target.value ? Number(e.target.value) : null)
+                setField("max_in_flight", e.target.value ? Number(e.target.value) : null)
               }
               className="input"
               placeholder="50"
@@ -634,7 +645,7 @@ export default function PipelineForm() {
           <Field label="Validation Schema (JSON Schema)">
             <textarea
               value={form.validation_schema_json || ""}
-              onChange={(e) => set("validation_schema_json", e.target.value)}
+              onChange={(e) => setField("validation_schema_json", e.target.value)}
               className="input font-mono text-sm"
               rows={4}
               placeholder='{"type": "object", "required": ["name"]}'
