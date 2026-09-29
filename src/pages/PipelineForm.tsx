@@ -241,7 +241,7 @@ export default function PipelineForm() {
       if (isEdit && id) {
         await api.updateConnector(id, payload);
       } else {
-        await api.createConnector(payload as ConnectorCreate);
+        await api.createConnector(payload as unknown as ConnectorCreate);
       }
       navigate("/");
     } catch (e: unknown) {
